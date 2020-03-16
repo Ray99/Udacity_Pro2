@@ -1,26 +1,111 @@
-import sys
 import pandas as pd
 import nltk
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+from nltk.tokenize import word_tokenize
+from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+from sklearn.multioutput import MultiOutputClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.metrics import classification_report, accuracy_score
+from sklearn.pipeline import Pipeline
+nltk.download(['punkt', 'wordnet'])
+nltk.download('stopwords')
+from sqlalchemy import create_engine
+import sys
+
 
 
 def load_data(database_filepath):
-    pass
+    """
+    Loads data from sqllite database
+
+    Args:
+        database_filepath: path to database
+
+    Returns:
+         X: feature
+         Y: labels
+         categories:Columns of labels
+    """
+    engine = create_engine('sqlite:///' + database_filepath)
+    df = pd.read_sql("select * from CleanedData", engine)
+    X = df["message"].values
+    Y = df.drop(['id', 'message', 'original', 'genre'], axis=1)
+    categories = Y.columns
+    return X, Y, categories
 
 
 def tokenize(text):
-    pass
+    """
+    Tokenizes a given message.
+
+    Args:
+        text: message string
+
+    Returns:
+        (str[]): array of cleanned tokens
+
+    """
+    tokens = word_tokenize(text)
+    lemmatizer = WordNetLemmatizer()
+
+    clean_tokens = []
+    for tok in tokens:
+        clean_tok = lemmatizer.lemmatize(tok).lower().strip()
+        clean_tokens.append(clean_tok)
+
+    return clean_tokens
 
 
 def build_model():
-    pass
+    """
+    Build classification model 
+
+    """
+
+    pipeline = Pipeline([
+        ('vect', CountVectorizer(tokenizer=tokenize)),
+        ('tfidf', TfidfTransformer()),
+        ('clf', MultiOutputClassifier(RandomForestClassifier()))
+    ])
+
+    parameters = {
+        'vect__ngram_range': ((1, 1), (1, 2)),
+        'clf__estimator__min_samples_split': [2, 4],
+    }
+
+    cv = GridSearchCV(pipeline, param_grid=parameters, verbose=2, n_jobs=4)
+    return cv
 
 
 def evaluate_model(model, X_test, Y_test, category_names):
-    pass
+    """
+    Evaluate the model against a test dataset
+
+    Args:
+        model: Trained model
+        X_test: Test features
+        Y_test: Test labels
+        category_names: String array of category names
+    """
+    y_preds = model.predict(X_test)
+    print(classification_report(y_preds, Y_test.values, target_names=category_names))
+    print("Accuracy scores for each category \n")
+    for i in range(36):
+        print("Accuracy score for " +
+              Y_test.columns[i], accuracy_score(Y_test.values[:, i], y_preds[:, i]))
 
 
 def save_model(model, model_filepath):
-    pass
+    """
+    Save the model to a Python pickle
+
+    Args:
+        model: Trained model
+        model_filepath: Path where to save the model
+    """
+    pickle.dump(model, open(model_filepath, 'wb'))
 
 
 def main():
@@ -28,14 +113,15 @@ def main():
         database_filepath, model_filepath = sys.argv[1:]
         print('Loading data...\n    DATABASE: {}'.format(database_filepath))
         X, Y, category_names = load_data(database_filepath)
-        X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2)
-        
+        X_train, X_test, Y_train, Y_test = train_test_split(
+            X, Y, test_size=0.2)
+
         print('Building model...')
         model = build_model()
-        
+
         print('Training model...')
         model.fit(X_train, Y_train)
-        
+
         print('Evaluating model...')
         evaluate_model(model, X_test, Y_test, category_names)
 
@@ -45,9 +131,9 @@ def main():
         print('Trained model saved!')
 
     else:
-        print('Please provide the filepath of the disaster messages database '\
-              'as the first argument and the filepath of the pickle file to '\
-              'save the model to as the second argument. \n\nExample: python '\
+        print('Please provide the filepath of the disaster messages database '
+              'as the first argument and the filepath of the pickle file to '
+              'save the model to as the second argument. \n\nExample: python '
               'train_classifier.py ../data/DisasterResponse.db classifier.pkl')
 
 
