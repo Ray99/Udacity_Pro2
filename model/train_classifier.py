@@ -1,19 +1,21 @@
-import pandas as pd
+import sys
+import pickle
+
 import nltk
-from nltk.corpus import stopwords
-from nltk.stem import WordNetLemmatizer
-from nltk.tokenize import word_tokenize
-from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
-from sklearn.multioutput import MultiOutputClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.metrics import classification_report, accuracy_score
-from sklearn.pipeline import Pipeline
 nltk.download(['punkt', 'wordnet'])
 nltk.download('stopwords')
-from sqlalchemy import create_engine
-import sys
+from nltk.tokenize import word_tokenize
+from nltk.stem import WordNetLemmatizer
 
+import pandas as pd
+from sqlalchemy import create_engine
+from nltk.corpus import stopwords
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import classification_report, accuracy_score
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.multioutput import MultiOutputClassifier
+from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 
 
 def load_data(database_filepath):
@@ -26,14 +28,14 @@ def load_data(database_filepath):
     Returns:
          X: feature
          Y: labels
-         categories:Columns of labels
+         category_names:Columns of labels
     """
     engine = create_engine('sqlite:///' + database_filepath)
-    df = pd.read_sql("select * from CleanedData", engine)
+    df = pd.read_sql("select * from cleanData", engine)
     X = df["message"].values
     Y = df.drop(['id', 'message', 'original', 'genre'], axis=1)
-    categories = Y.columns
-    return X, Y, categories
+    category_names = Y.columns
+    return X, Y, category_names
 
 
 def tokenize(text):
@@ -91,7 +93,7 @@ def evaluate_model(model, X_test, Y_test, category_names):
     """
     y_preds = model.predict(X_test)
     print(classification_report(y_preds, Y_test.values, target_names=category_names))
-    print("Accuracy scores for each category \n")
+    print("**** Accuracy scores for each category *****\n")
     for i in range(36):
         print("Accuracy score for " +
               Y_test.columns[i], accuracy_score(Y_test.values[:, i], y_preds[:, i]))

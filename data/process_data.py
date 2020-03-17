@@ -4,7 +4,6 @@ from sqlalchemy import create_engine
 
 
 def load_data(messages_filepath, categories_filepath):
-
     """
     Loads data from gaven files
 
@@ -22,7 +21,6 @@ def load_data(messages_filepath, categories_filepath):
 
 
 def clean_data(df):
-    
     """
     Clean data
 
@@ -39,7 +37,7 @@ def clean_data(df):
     for column in categories:
         # set each value to be the last character of the string
         categories[column] = categories[column].apply(
-            lambda x: x.split("-")[1])
+            lambda x: x.split('-')[1] if int(x.split('-')[1]) < 2 else 1)
         # convert column from string to numeric
         categories[column] = categories[column].astype(int)
     # drop the original categories column from `df`
@@ -47,7 +45,7 @@ def clean_data(df):
     # concatenate the original dataframe with the new `categories` dataframe
     df = pd.concat([df, categories], axis=1)
     # drop duplicates
-    df.drop_duplicates(inplace=True)
+    df = df.drop_duplicates(keep='first')
     return df
 
 
@@ -59,8 +57,8 @@ def save_data(df, database_filename):
         df:dataset
         database_filename:data base file name
     """
-    engine = create_engine('sqlite:///'+ database_filename)
-    df.to_sql('CleanedData', engine, index=False)
+    engine = create_engine('sqlite:///' + database_filename)
+    df.to_sql('cleanData', engine, index=False)
 
 
 def main():
